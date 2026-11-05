@@ -75,22 +75,3 @@ open "dist/Codex Limits.app" --args --demo
 Тесты проверяют разбор ответов, совместимость со старой формой ответа, выбор корзины, устаревание данных, JSON-RPC handshake, фрагменты сообщений, RPC-ошибки и тайм-аут. Транспортные тесты запускают временный локальный mock CLI; сеть и реальный аккаунт не нужны.
 
 В среде, которая запрещает вложенную песочницу SwiftPM, используйте `./scripts/swift.sh test --disable-sandbox` или `./scripts/build.sh --disable-sandbox`. Этот флаг относится к выполнению manifest SwiftPM.
-
-## Как запушить в свой Git
-
-Для **нового пустого репозитория** создайте его в GitHub/GitLab без README и замените адрес ниже на свой:
-
-```bash
-cd /Users/nikko/Projects/nikko/codex-limits-widget
-git init -b main
-git add .
-git commit -m "Add macOS Codex limits widget"
-git remote add origin git@github.com:YOUR_USERNAME/codex-limits-widget.git
-git push -u origin main
-```
-
-Для GitLab или HTTPS используйте URL своего репозитория вместо примера. `.build` и `dist` исключены из Git: отправляются исходники и скрипты.
-
-Если репозиторий **уже содержит код**, сначала клонируйте его в другую папку, скопируйте туда содержимое этого проекта без `.build`, `.swiftpm` и `dist`, затем выполните обычные `git add`, `git commit`, `git push`. Привязывать новую локальную историю к непустому репозиторию через force-push не требуется.
-
-Git-репозиторий, коммиты и отправка на сервер автоматически не создаются.
