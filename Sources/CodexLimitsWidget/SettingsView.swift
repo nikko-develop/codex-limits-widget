@@ -16,6 +16,8 @@ struct SettingsView: View {
                     Button("Выбрать…", action: selectCLI)
                 }
                 TextField("CODEX_HOME (пусто = настройки CLI)", text: $store.codexHome)
+                Text("Статистика читает sessions и archived_sessions в этой папке. Данные обновляются раз в минуту, пока открыта вкладка.")
+                    .font(.caption).foregroundStyle(.secondary)
                 Text("Вход в ChatGPT выполните в терминале: codex login. API-ключ не даёт лимиты подписки.")
                     .font(.caption).foregroundStyle(.secondary)
                 Button("Сохранить и обновить") { store.saveSettings() }

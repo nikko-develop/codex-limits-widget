@@ -6,6 +6,94 @@ struct WidgetView: View {
     @ObservedObject var store: LimitsStore
     var toggleWidget: () -> Void
     var openSettings: () -> Void
+
+    var body: some View {
+        GeometryReader { geometry in
+            let expandedSize = store.size(for: .statistics)
+            let compactSize = store.size(for: .limits)
+            let progress = min(1, max(0, (geometry.size.width - compactSize.width) /
+                                      max(1, expandedSize.width - compactSize.width)))
+            let compactTabsWidth = compactSize.width - 48
+            let tabsWidth = compactTabsWidth + (255 - compactTabsWidth) * progress
+
+            VStack(spacing: 0) {
+                HStack(spacing: 0) {
+                    tabPicker.frame(width: tabsWidth, height: 24)
+                    Spacer(minLength: 0)
+                }
+                .overlay(alignment: .trailing) {
+                    Button(action: openSettings) { Image(systemName: "gearshape") }
+                        .buttonStyle(.plain).help("Настройки")
+                        .opacity(progress)
+                        .allowsHitTesting(store.selectedTab == .statistics)
+                        .accessibilityHidden(store.selectedTab != .statistics)
+                }
+                .padding(.horizontal, 24).padding(.top, 16).padding(.bottom, 8)
+
+                // Keep both pages alive and let the window own the resize animation.
+                // Statistics keeps its final layout while the growing window reveals it.
+                ZStack(alignment: .topLeading) {
+                    LimitsContent(store: store, toggleWidget: toggleWidget, openSettings: openSettings)
+                        .opacity(max(0, 1 - Double(progress) * 4))
+                        .allowsHitTesting(store.selectedTab == .limits)
+                        .accessibilityHidden(store.selectedTab != .limits)
+                    StatisticsView(store: store.usage, isDemo: store.isDemo,
+                                   refresh: { store.refreshUsage(force: true) })
+                        .frame(width: expandedSize.width, height: expandedSize.height - 48)
+                        .opacity(max(0, (Double(progress) - 0.25) / 0.75))
+                        .allowsHitTesting(store.selectedTab == .statistics)
+                        .accessibilityHidden(store.selectedTab != .statistics)
+                }
+                .frame(width: geometry.size.width, height: max(0, geometry.size.height - 48), alignment: .topLeading)
+                .clipped()
+            }
+            .frame(width: geometry.size.width, height: geometry.size.height, alignment: .topLeading)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .foregroundStyle(.white)
+        .background {
+            LinearGradient(colors: [Color(red: 0.09, green: 0.13, blue: 0.15),
+                                    Color(red: 0.055, green: 0.065, blue: 0.085)],
+                           startPoint: .topLeading, endPoint: .bottomTrailing)
+        }
+        .clipShape(RoundedRectangle(cornerRadius: 22))
+        .overlay(RoundedRectangle(cornerRadius: 22).strokeBorder(.white.opacity(0.09)))
+        .environment(\.colorScheme, .dark)
+        .onChange(of: store.selectedTab) { tab in
+            if tab == .statistics { store.refreshUsage() }
+        }
+    }
+
+    private var tabPicker: some View {
+        HStack(spacing: 2) {
+            ForEach(WidgetTab.allCases, id: \.self) { tab in
+                Button { store.selectedTab = tab } label: {
+                    Text(tab.rawValue)
+                        .font(.system(size: 12, weight: .medium))
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        .contentShape(Rectangle())
+                        .background {
+                            RoundedRectangle(cornerRadius: 5)
+                                .fill(.white.opacity(store.selectedTab == tab ? 0.22 : 0))
+                        }
+                }
+                .buttonStyle(.plain)
+                .accessibilityAddTraits(store.selectedTab == tab ? [.isSelected] : [])
+            }
+        }
+        .padding(2)
+        .background(.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 7))
+        .overlay(RoundedRectangle(cornerRadius: 7).strokeBorder(.white.opacity(0.1)))
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("Раздел виджета")
+    }
+}
+
+@MainActor
+private struct LimitsContent: View {
+    @ObservedObject var store: LimitsStore
+    var toggleWidget: () -> Void
+    var openSettings: () -> Void
     private let mint = Color(red: 0.47, green: 0.92, blue: 0.73)
 
     var body: some View {
@@ -80,14 +168,6 @@ struct WidgetView: View {
         .padding(24)
         .frame(width: 350, height: 426)
         .foregroundStyle(.white)
-        .background {
-            LinearGradient(colors: [Color(red: 0.09, green: 0.13, blue: 0.15),
-                                    Color(red: 0.055, green: 0.065, blue: 0.085)],
-                           startPoint: .topLeading, endPoint: .bottomTrailing)
-        }
-        .clipShape(RoundedRectangle(cornerRadius: 22))
-        .overlay(RoundedRectangle(cornerRadius: 22).strokeBorder(.white.opacity(0.09)))
-        .environment(\.colorScheme, .dark)
     }
 
     private func iconButton(_ icon: String, help: String, action: @escaping () -> Void) -> some View {

@@ -2,6 +2,10 @@ import AppKit
 import CodexLimitsCore
 import Combine
 
+enum WidgetTab: String, CaseIterable {
+    case limits = "Лимиты", statistics = "Статистика"
+}
+
 @MainActor
 final class LimitsStore: ObservableObject {
     @Published private(set) var snapshot: LimitsSnapshot?
@@ -12,6 +16,8 @@ final class LimitsStore: ObservableObject {
     @Published var keepOnTop = false
     @Published var cliPath: String
     @Published var codexHome: String
+    @Published var selectedTab: WidgetTab = .limits
+    let usage: UsageStore
     let isDemo: Bool
     private var timer: Timer?
     private var lastAttempt = Date.distantPast
@@ -23,9 +29,17 @@ final class LimitsStore: ObservableObject {
         return "\(isStale ? "~" : "")\(Int(remaining.rounded(.down)))%"
     }
     var resolvedCLI: String { CodexLocator.find(override: cliPath)?.path ?? "Не найден" }
+    var widgetSize: NSSize { size(for: selectedTab) }
+
+    func size(for tab: WidgetTab) -> NSSize {
+        guard tab == .statistics else { return NSSize(width: 350, height: 474) }
+        let available = NSScreen.main?.visibleFrame.size ?? NSSize(width: 900, height: 800)
+        return NSSize(width: min(880, available.width - 40), height: min(740, available.height - 40))
+    }
 
     init(demo: Bool) {
         isDemo = demo
+        usage = UsageStore(demo: demo)
         let defaults = UserDefaults.standard
         cliPath = defaults.string(forKey: "cliPath") ?? ""
         codexHome = defaults.string(forKey: "codexHome") ?? ""
@@ -54,9 +68,15 @@ final class LimitsStore: ObservableObject {
     private func tick() {
         now = Date()
         if now.timeIntervalSince(lastAttempt) >= 5 * 60 { refresh() }
+        if selectedTab == .statistics { refreshUsage() }
     }
 
-    @objc private func didWake() { refresh() }
+    @objc private func didWake() {
+        refresh()
+        if selectedTab == .statistics { refreshUsage(force: true) }
+    }
+
+    func refreshUsage(force: Bool = false) { usage.refresh(home: codexHome, force: force) }
 
     func refresh() {
         guard !isLoading else { return }
@@ -92,6 +112,8 @@ final class LimitsStore: ObservableObject {
         // Cached percentages may belong to a different account after changing CODEX_HOME.
         snapshot = nil
         try? FileManager.default.removeItem(at: cacheURL)
+        usage.reset()
+        if selectedTab == .statistics { refreshUsage(force: true) }
         refresh()
     }
 
